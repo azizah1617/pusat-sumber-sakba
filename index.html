@@ -39,9 +39,26 @@
             <div id="clock-container" class="bg-blue-800/40 px-4 py-2 rounded-lg border border-blue-600/50 text-center md:text-right min-w-[180px]">
                 <div id="clock-time" class="text-2xl font-bold font-mono clock-glow leading-none uppercase">00:00:00</div>
                 <div id="clock-date" class="text-[10px] md:text-xs uppercase tracking-widest mt-1 text-blue-200 font-semibold">Memuatkan...</div>
+                <!-- Butang Reset -->
+                <button onclick="promptResetSystem()" class="mt-2 text-[9px] uppercase tracking-tighter bg-red-600/30 hover:bg-red-600 px-2 py-0.5 rounded border border-red-400/50 transition-colors text-red-100">
+                    Reset Sistem
+                </button>
             </div>
         </div>
     </header>
+
+    <!-- Modal Katalaluan Reset -->
+    <div id="reset-modal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-[100] no-print p-4">
+        <div class="bg-white rounded-xl p-6 w-full max-w-sm shadow-2xl">
+            <h3 class="text-lg font-bold text-gray-900 mb-2">Pengesahan Reset</h3>
+            <p class="text-sm text-gray-500 mb-4">Semua data buku dan rekod pinjaman akan dipadamkan secara kekal. Sila masukkan katalaluan pentadbir:</p>
+            <input type="password" id="reset-password" class="w-full border p-2 rounded mb-4 focus:ring-2 focus:ring-red-500 outline-none" placeholder="Katalaluan">
+            <div class="flex gap-2">
+                <button onclick="closeResetModal()" class="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium">Batal</button>
+                <button onclick="confirmReset()" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-bold">Padam Semua</button>
+            </div>
+        </div>
+    </div>
 
     <main class="max-w-6xl mx-auto p-4 md:p-8">
         
@@ -95,6 +112,7 @@
             </div>
         </section>
 
+        <!-- Pinjaman Section -->
         <section id="tab-pinjaman" class="hidden space-y-6">
             <div class="flex flex-wrap gap-4 mb-4 no-print">
                 <button onclick="setLoanMode('murid')" id="mode-murid" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium">Pinjaman Murid</button>
@@ -138,6 +156,7 @@
             </div>
         </section>
 
+        <!-- Buku Section -->
         <section id="tab-buku" class="hidden space-y-6">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 no-print">
                 <h2 class="text-xl font-bold mb-4 text-gray-800">Tambah Buku Baru</h2>
@@ -164,6 +183,7 @@
             </div>
         </section>
 
+        <!-- Rekod Section -->
         <section id="tab-rekod" class="hidden space-y-6">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div class="flex flex-col md:flex-row gap-4 mb-4 no-print">
@@ -189,6 +209,7 @@
             </div>
         </section>
 
+        <!-- Analisis Section -->
         <section id="tab-analisis" class="hidden space-y-6">
             <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 no-print">
@@ -231,7 +252,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, collection, doc, setDoc, getDocs, onSnapshot, updateDoc, deleteDoc, query, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, getDocs, onSnapshot, updateDoc, deleteDoc, query, orderBy, Timestamp, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
         const firebaseConfig = {
@@ -249,6 +270,7 @@
         const auth = getAuth(app);
         
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'sakba-perpustakaan-v1';
+        const MASTER_PASSWORD = "SAKBA2024"; // Katalaluan untuk reset
 
         let books = [];
         let loans = [];
@@ -266,6 +288,48 @@
 
         const booksRef = collection(db, 'artifacts', appId, 'public', 'data', 'books');
         const loansRef = collection(db, 'artifacts', appId, 'public', 'data', 'loans');
+
+        // Modal Reset Functions
+        window.promptResetSystem = () => {
+            document.getElementById('reset-modal').classList.remove('hidden');
+            document.getElementById('reset-modal').classList.add('flex');
+            document.getElementById('reset-password').value = "";
+            document.getElementById('reset-password').focus();
+        };
+
+        window.closeResetModal = () => {
+            document.getElementById('reset-modal').classList.add('hidden');
+            document.getElementById('reset-modal').classList.remove('flex');
+        };
+
+        window.confirmReset = async () => {
+            const pwd = document.getElementById('reset-password').value;
+            if (pwd !== MASTER_PASSWORD) {
+                showToast("Katalaluan salah!");
+                return;
+            }
+
+            if (!confirm("ADAKAH ANDA PASTI? Tindakan ini tidak boleh diundur.")) return;
+
+            showToast("Sedang memadam data...");
+            closeResetModal();
+
+            try {
+                // Batch delete books
+                const booksSnap = await getDocs(booksRef);
+                const loansSnap = await getDocs(loansRef);
+                
+                const batch = writeBatch(db);
+                booksSnap.forEach(d => batch.delete(d.ref));
+                loansSnap.forEach(d => batch.delete(d.ref));
+                
+                await batch.commit();
+                showToast("Sistem berjaya direset semula.");
+            } catch (err) {
+                console.error(err);
+                showToast("Ralat semasa memadam data.");
+            }
+        };
 
         window.switchTab = (id) => {
             ['dashboard', 'pinjaman', 'buku', 'rekod', 'analisis'].forEach(t => {
