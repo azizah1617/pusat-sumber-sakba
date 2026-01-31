@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Perpustakaan & Media - SAKBA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .tab-active { border-bottom: 2px solid #2563eb; color: #2563eb; }
+        .clock-glow { text-shadow: 0 0 10px rgba(255, 255, 255, 0.3); }
+        
+        @media print {
+            .no-print { display: none !important; }
+            .print-only { display: block !important; }
+            body { background-color: white; }
+            .print-shadow { box-shadow: none !important; border: 1px solid #eee !important; }
+        }
+        .print-only { display: none; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- Header (no-print) -->
+    <header class="bg-blue-700 text-white shadow-lg p-6 no-print">
+        <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-4">
+                <img src="https://i.postimg.cc/g2CVFzRH/logo-sakba.png" alt="Logo SAKBA" class="h-16 w-auto drop-shadow-md" onerror="this.style.display='none'">
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-tight">Sistem Rekod Perpustakaan</h1>
+                    <p class="text-blue-100 text-sm font-medium">Sekolah Menengah Sains Kepala Batas</p>
+                </div>
+            </div>
+            
+            <div id="clock-container" class="bg-blue-800/40 px-4 py-2 rounded-lg border border-blue-600/50 text-center md:text-right min-w-[180px]">
+                <div id="clock-time" class="text-2xl font-bold font-mono clock-glow leading-none uppercase">00:00:00</div>
+                <div id="clock-date" class="text-[10px] md:text-xs uppercase tracking-widest mt-1 text-blue-200 font-semibold">Memuatkan...</div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4 md:p-8">
+        
+        <!-- Navigation Tabs (no-print) -->
+        <div class="flex space-x-4 border-b border-gray-200 mb-8 overflow-x-auto no-print">
+            <button onclick="switchTab('dashboard')" id="btn-dashboard" class="px-4 py-2 font-medium transition tab-active">Dashboard</button>
+            <button onclick="switchTab('pinjaman')" id="btn-pinjaman" class="px-4 py-2 font-medium text-gray-500 hover:text-blue-600 transition text-nowrap">Pinjaman Buku</button>
+            <button onclick="switchTab('buku')" id="btn-buku" class="px-4 py-2 font-medium text-gray-500 hover:text-blue-600 transition text-nowrap">Senarai Buku</button>
+            <button onclick="switchTab('rekod')" id="btn-rekod" class="px-4 py-2 font-medium text-gray-500 hover:text-blue-600 transition text-nowrap">Rekod Pinjaman</button>
+            <button onclick="switchTab('analisis')" id="btn-analisis" class="px-4 py-2 font-medium text-gray-500 hover:text-blue-600 transition text-nowrap">Analisis</button>
+        </div>
+
+        <!-- Dashboard Section -->
+        <section id="tab-dashboard" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="text-gray-500 text-sm font-medium">Jumlah Koleksi Buku</h3>
+                    <p id="stat-total-books" class="text-3xl font-bold text-gray-800">0</p>
+                </div>
+                <div onclick="filterAndGoToRecords('Dipinjam')" class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 cursor-pointer hover:border-orange-300 transition-all hover:shadow-md">
+                    <h3 class="text-gray-500 text-sm font-medium flex justify-between items-center">
+                        Buku Sedang Dipinjam
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </h3>
+                    <p id="stat-borrowed" class="text-3xl font-bold text-orange-600">0</p>
+                    <p class="text-xs text-orange-400 mt-2">Klik untuk lihat senarai</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <h3 class="text-gray-500 text-sm font-medium text-green-600">Buku Telah Dikembalikan</h3>
+                    <p id="stat-available" class="text-3xl font-bold text-green-600">0</p>
+                </div>
+            </div>
+            
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 class="text-lg font-semibold mb-4 text-gray-800">Aktiviti Terkini</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="text-gray-400 text-sm border-b">
+                                <th class="pb-3 font-medium">Peminjam</th>
+                                <th class="pb-3 font-medium">Item/Buku</th>
+                                <th class="pb-3 font-medium">Tarikh</th>
+                                <th class="pb-3 font-medium">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-activity-body" class="text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pinjaman Section -->
+        <section id="tab-pinjaman" class="hidden space-y-6">
+            <div class="flex flex-wrap gap-4 mb-4">
+                <button onclick="setLoanMode('murid')" id="mode-murid" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium">Pinjaman Murid</button>
+                <button onclick="setLoanMode('guru')" id="mode-guru" class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300">Pinjaman Guru (Pukal)</button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-100 h-fit">
+                    <h2 id="loan-header" class="text-xl font-bold mb-6 text-gray-800">Langkah 1: Maklumat Peminjam</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label id="label-name" class="block text-sm font-medium text-gray-700">Nama Pelajar</label>
+                            <input type="text" id="borrower-name" class="mt-1 block w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Masukkan nama...">
+                        </div>
+                        <div id="field-class">
+                            <label class="block text-sm font-medium text-gray-700">Kelas</label>
+                            <input type="text" id="borrower-class" class="mt-1 block w-full px-4 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500" placeholder="Contoh: 5 Inovatif">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Tempoh Pinjaman (Hari)</label>
+                            <input type="number" id="loan-duration" value="7" min="1" class="mt-1 block w-full px-4 py-2 border rounded-md">
+                        </div>
+                    </div>
+
+                    <div class="mt-10 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                        <h3 class="text-blue-800 font-semibold mb-2">Rumusan Pinjaman</h3>
+                        <p class="text-sm text-blue-600">Jumlah Buku: <span id="cart-count" class="font-bold">0</span> buah</p>
+                        <button onclick="processFinalLoan()" id="btn-submit-loan" disabled class="mt-4 w-full bg-blue-600 text-white py-3 rounded-md hover:bg-blue-700 transition font-bold disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider">Simpan Rekod Pinjaman</button>
+                    </div>
+                </div>
+
+                <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+                    <h2 class="text-xl font-bold mb-6 text-gray-800">Langkah 2: Pilih Buku</h2>
+                    
+                    <div id="section-murid" class="space-y-6">
+                        <div class="space-y-2">
+                            <label class="block text-sm font-medium text-gray-700">Cari & Pilih Buku</label>
+                            <div class="flex gap-2">
+                                <select id="book-select" class="block w-full px-4 py-2 border rounded-md"></select>
+                                <button onclick="addToCartManual()" class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 font-bold whitespace-nowrap">Tambah</button>
+                            </div>
+                        </div>
+
+                        <div class="mt-6">
+                            <label class="block text-sm font-medium text-gray-500 mb-2">Senarai Pinjaman Sementara:</label>
+                            <div id="loan-cart" class="space-y-2 max-h-60 overflow-y-auto pr-2">
+                                <p class="text-gray-400 text-center py-4 italic text-sm">Sila pilih buku dari senarai di atas.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="section-guru" class="hidden space-y-4">
+                        <div class="p-4 bg-orange-50 border border-orange-200 rounded-lg text-center">
+                            <label class="block text-sm font-medium text-orange-800 mb-2 uppercase tracking-wide">Jumlah Buku Yang Diambil</label>
+                            <input type="number" id="bulk-quantity" oninput="updateBulkCount()" class="block w-full px-4 py-4 border-2 border-orange-300 rounded-md text-4xl font-bold text-center text-orange-700 bg-white" placeholder="0">
+                            <p class="text-xs text-orange-500 mt-2">Sesuai untuk pinjaman pukal bagi kegunaan kelas.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Senarai Buku Section -->
+        <section id="tab-buku" class="hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 class="text-xl font-bold mb-4 text-gray-800">Tambah Buku Baru</h2>
+                <form id="book-form" class="flex flex-col md:flex-row gap-4">
+                    <input type="text" id="book-id-manual" placeholder="ID Buku / No Perolehan" required class="flex-1 px-4 py-2 border rounded-md font-mono">
+                    <input type="text" id="book-title" placeholder="Judul Buku" required class="flex-[2] px-4 py-2 border rounded-md">
+                    <button type="submit" class="bg-green-600 text-white px-8 py-2 rounded-md hover:bg-green-700 transition font-bold">Simpan Buku</button>
+                </form>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <h2 class="text-xl font-bold mb-4 text-gray-800">Inventori Buku</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 text-sm">
+                            <tr>
+                                <th class="p-4 font-semibold text-gray-600 border-b">ID / No Perolehan</th>
+                                <th class="p-4 font-semibold text-gray-600 border-b">Judul</th>
+                                <th class="p-4 font-semibold text-gray-600 text-center border-b">Status</th>
+                                <th class="p-4 font-semibold text-gray-600 text-right border-b">Tindakan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="books-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Rekod Section -->
+        <section id="tab-rekod" class="hidden space-y-6">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-xl font-bold text-gray-800">Rekod Pinjaman</h2>
+                        <button onclick="clearSearch()" id="clear-filter-btn" class="hidden text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded">Reset</button>
+                    </div>
+                    <input type="text" id="search-records" onkeyup="filterRecords()" placeholder="Cari nama, buku..." class="px-4 py-2 border rounded-lg text-sm w-full md:w-64">
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead class="bg-gray-50 text-sm">
+                            <tr>
+                                <th class="p-4 font-semibold text-gray-600">Peminjam</th>
+                                <th class="p-4 font-semibold text-gray-600">Keterangan/Buku</th>
+                                <th class="p-4 font-semibold text-gray-600 text-center">Tarikh</th>
+                                <th class="p-4 font-semibold text-gray-600 text-center">Status</th>
+                                <th class="p-4 font-semibold text-gray-600 text-right">Tindakan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="loans-table-body" class="text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Analisis Section -->
+        <section id="tab-analisis" class="hidden space-y-6">
+            <!-- Print Header Only -->
+            <div class="print-only mb-8 text-center border-b-2 border-blue-700 pb-4">
+                <h1 class="text-2xl font-bold uppercase">Laporan Analisis Pinjaman Buku</h1>
+                <p class="text-gray-600">Sekolah Menengah Sains Kepala Batas (SAKBA)</p>
+                <p id="print-date-timestamp" class="text-xs mt-2"></p>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 print-shadow">
+                <div class="flex justify-between items-center mb-6 no-print">
+                    <h2 id="analysis-title" class="text-xl font-bold text-gray-800">Analisis Pinjaman Bulanan</h2>
+                    <button onclick="window.print()" class="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition font-bold">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 012-2H9a2 2 0 01-2 2v4h10z" />
+                        </svg>
+                        Cetak Laporan
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="bg-gray-50 text-sm">
+                            <tr>
+                                <th class="p-4 font-semibold text-gray-600 border">Bulan</th>
+                                <th class="p-4 font-semibold text-gray-600 border text-center">Pinjaman Murid</th>
+                                <th class="p-4 font-semibold text-gray-600 border text-center">Pinjaman Guru</th>
+                                <th class="p-4 font-semibold text-gray-600 border text-center font-bold text-blue-700">Jumlah Keseluruhan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="analysis-table-body" class="text-sm"></tbody>
+                    </table>
+                </div>
+
+                <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="p-4 bg-blue-50 border border-blue-100 rounded-lg">
+                        <h4 id="summary-year-label" class="text-blue-800 font-bold mb-2 uppercase text-xs">Rumusan Tahun Ini</h4>
+                        <div class="flex justify-between text-sm py-1 border-b border-blue-100">
+                            <span>Total Pinjaman Murid:</span>
+                            <span id="total-murid-year" class="font-bold">0</span>
+                        </div>
+                        <div class="flex justify-between text-sm py-1 border-b border-blue-100">
+                            <span>Total Pinjaman Guru:</span>
+                            <span id="total-guru-year" class="font-bold">0</span>
+                        </div>
+                        <div class="flex justify-between text-sm py-2 font-bold text-blue-700">
+                            <span class="text-base">JUMLAH BESAR:</span>
+                            <span id="grand-total-year" class="text-lg">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <div id="toast" class="fixed bottom-5 right-5 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-2xl transform translate-y-20 transition-transform duration-300 pointer-events-none z-50 text-sm"></div>
+
+    <script>
+        // State
+        let books = JSON.parse(localStorage.getItem('lib_books')) || [];
+        let loans = JSON.parse(localStorage.getItem('lib_loans')) || [];
+        let cart = [];
+        let currentMode = 'murid';
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            if (t) {
+                t.innerText = msg;
+                t.classList.remove('translate-y-20');
+                setTimeout(() => t.classList.add('translate-y-20'), 3000);
+            }
+        }
+
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+            const dateStr = now.toLocaleDateString('ms-MY', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' });
+            document.getElementById('clock-time').innerText = timeStr;
+            document.getElementById('clock-date').innerText = dateStr;
+            const printTS = document.getElementById('print-date-timestamp');
+            if(printTS) printTS.innerText = `Dicetak pada: ${dateStr} ${timeStr}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function switchTab(id) {
+            ['dashboard', 'pinjaman', 'buku', 'rekod', 'analisis'].forEach(t => {
+                const tabSection = document.getElementById(`tab-${t}`);
+                const tabBtn = document.getElementById(`btn-${t}`);
+                if (tabSection) tabSection.classList.add('hidden');
+                if (tabBtn) {
+                    tabBtn.classList.remove('tab-active', 'text-blue-600');
+                    tabBtn.classList.add('text-gray-500');
+                }
+            });
+            document.getElementById(`tab-${id}`).classList.remove('hidden');
+            document.getElementById(`btn-${id}`).classList.add('tab-active', 'text-blue-600');
+            
+            if (id === 'dashboard') updateDashboard();
+            if (id === 'pinjaman') populateBookSelect();
+            if (id === 'buku') renderBooks();
+            if (id === 'rekod') renderLoans();
+            if (id === 'analisis') renderAnalysis();
+        }
+
+        function setLoanMode(mode) {
+            currentMode = mode;
+            cart = [];
+            document.getElementById('borrower-name').value = '';
+            document.getElementById('borrower-class').value = '';
+            const bq = document.getElementById('bulk-quantity');
+            if (bq) bq.value = '';
+            renderCart();
+
+            if(mode === 'murid') {
+                document.getElementById('mode-murid').className = "bg-blue-600 text-white px-4 py-2 rounded-lg font-medium";
+                document.getElementById('mode-guru').className = "bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300";
+                document.getElementById('section-murid').classList.remove('hidden');
+                document.getElementById('section-guru').classList.add('hidden');
+                document.getElementById('field-class').classList.remove('hidden');
+                document.getElementById('label-name').innerText = "Nama Pelajar";
+            } else {
+                document.getElementById('mode-guru').className = "bg-blue-600 text-white px-4 py-2 rounded-lg font-medium";
+                document.getElementById('mode-murid').className = "bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300";
+                document.getElementById('section-guru').classList.remove('hidden');
+                document.getElementById('section-murid').classList.add('hidden');
+                document.getElementById('field-class').classList.add('hidden');
+                document.getElementById('label-name').innerText = "Nama Guru";
+            }
+        }
+
+        function addToCartManual() {
+            const selectEl = document.getElementById('book-select');
+            const id = selectEl.value;
+            if(!id) return showToast('Sila pilih buku!');
+            const book = books.find(b => b.id === id);
+            if (cart.find(c => c.id === id)) return showToast('Buku sudah ditambah!');
+            cart.push(book);
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('loan-cart');
+            const countEl = document.getElementById('cart-count');
+            const btn = document.getElementById('btn-submit-loan');
+            
+            if (currentMode === 'guru') {
+                updateBulkCount();
+                return;
+            }
+            
+            if (cart.length === 0) {
+                container.innerHTML = '<p class="text-gray-400 text-center py-4 italic text-sm">Sila pilih buku dari senarai di atas.</p>';
+                btn.disabled = true;
+                countEl.innerText = '0';
+                return;
+            }
+            
+            container.innerHTML = '';
+            cart.forEach((b, i) => {
+                const div = document.createElement('div');
+                div.className = "flex justify-between items-center p-3 bg-white border border-gray-200 rounded-lg shadow-sm text-sm";
+                div.innerHTML = `
+                    <div class="flex flex-col">
+                        <span class="font-bold text-gray-800">${b.title}</span>
+                        <span class="text-[10px] text-gray-400 font-mono uppercase">${b.id}</span>
+                    </div>
+                    <button onclick="cart.splice(${i},1);renderCart();" class="text-red-500 hover:bg-red-50 p-1 rounded-full transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                    </button>`;
+                container.appendChild(div);
+            });
+            countEl.innerText = cart.length;
+            btn.disabled = false;
+        }
+
+        function updateBulkCount() {
+            const qty = parseInt(document.getElementById('bulk-quantity').value) || 0;
+            document.getElementById('cart-count').innerText = qty;
+            document.getElementById('btn-submit-loan').disabled = qty <= 0;
+        }
+
+        function processFinalLoan() {
+            const name = document.getElementById('borrower-name').value.trim();
+            const cls = document.getElementById('borrower-class').value.trim();
+            const days = parseInt(document.getElementById('loan-duration').value);
+            if(!name) return showToast('Masukkan nama peminjam!');
+
+            const rawDate = new Date();
+            const todayStr = rawDate.toLocaleDateString('ms-MY');
+            const retDate = new Date();
+            retDate.setDate(retDate.getDate() + days);
+            const retStr = retDate.toLocaleDateString('ms-MY');
+
+            if(currentMode === 'murid') {
+                cart.forEach(book => {
+                    loans.unshift({
+                        id: 'L' + Date.now() + Math.random().toString(36).substr(2, 5),
+                        borrower: name,
+                        class: cls,
+                        item: book.title,
+                        bookId: book.id,
+                        type: 'Individu',
+                        rawDate: rawDate.toISOString(),
+                        date: todayStr,
+                        due: retStr,
+                        status: 'Dipinjam'
+                    });
+                    const bIdx = books.findIndex(b => b.id === book.id);
+                    if(bIdx !== -1) books[bIdx].status = 'Dipinjam';
+                });
+            } else {
+                const qty = parseInt(document.getElementById('bulk-quantity').value);
+                loans.unshift({
+                    id: 'P' + Date.now(),
+                    borrower: name,
+                    class: 'GURU',
+                    item: `${qty} Buah Buku (Pukal)`,
+                    qty: qty,
+                    type: 'Pukal',
+                    rawDate: rawDate.toISOString(),
+                    date: todayStr,
+                    due: retStr,
+                    status: 'Dipinjam'
+                });
+            }
+
+            localStorage.setItem('lib_books', JSON.stringify(books));
+            localStorage.setItem('lib_loans', JSON.stringify(loans));
+            cart = [];
+            showToast('Pinjaman Berjaya Direkodkan');
+            switchTab('rekod');
+            setLoanMode(currentMode); 
+        }
+
+        function renderLoans() {
+            const body = document.getElementById('loans-table-body');
+            body.innerHTML = '';
+            loans.forEach(l => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b hover:bg-gray-50";
+                tr.innerHTML = `
+                    <td class="p-4">
+                        <div class="font-bold">${l.borrower}</div>
+                        <div class="text-xs text-gray-500">${l.class}</div>
+                    </td>
+                    <td class="p-4">${l.item}</td>
+                    <td class="p-4 text-center">
+                        <div class="text-xs text-gray-500">Mula: ${l.date}</div>
+                        <div class="text-xs font-bold text-blue-600">Pulang: ${l.due}</div>
+                    </td>
+                    <td class="p-4 text-center">
+                        <span class="px-2 py-1 text-[10px] font-bold uppercase rounded-full ${l.status === 'Dipinjam' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}">
+                            ${l.status}
+                        </span>
+                    </td>
+                    <td class="p-4 text-right">
+                        ${l.status === 'Dipinjam' ? `<button onclick="returnItem('${l.id}')" class="text-blue-600 hover:underline text-xs font-bold">Terima Pulang</button>` : '-'}
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function returnItem(id) {
+            const idx = loans.findIndex(l => l.id === id);
+            if(idx === -1) return;
+            loans[idx].status = 'Dikembalikan';
+            if(loans[idx].bookId) {
+                const bIdx = books.findIndex(b => b.id === loans[idx].bookId);
+                if(bIdx !== -1) books[bIdx].status = 'Tersedia';
+            }
+            localStorage.setItem('lib_books', JSON.stringify(books));
+            localStorage.setItem('lib_loans', JSON.stringify(loans));
+            renderLoans();
+            showToast('Buku telah dikembalikan.');
+        }
+
+        function renderBooks() {
+            const tbody = document.getElementById('books-table-body');
+            tbody.innerHTML = '';
+            books.forEach(b => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b text-sm hover:bg-gray-50";
+                tr.innerHTML = `
+                    <td class="p-4 font-mono">${b.id}</td>
+                    <td class="p-4 font-bold text-gray-800">${b.title}</td>
+                    <td class="p-4 text-center"><span class="px-2 py-1 text-[10px] font-bold uppercase rounded ${b.status === 'Tersedia' ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}">${b.status}</span></td>
+                    <td class="p-4 text-right">
+                        <button onclick="deleteBook('${b.id}')" class="text-red-400 hover:text-red-600 p-2">
+                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function deleteBook(id) {
+            if(confirm('Padam buku ini?')) {
+                books = books.filter(b => b.id !== id);
+                localStorage.setItem('lib_books', JSON.stringify(books));
+                renderBooks();
+                showToast('Buku dipadam.');
+            }
+        }
+
+        document.getElementById('book-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('book-id-manual').value.trim();
+            if(books.find(b => b.id === id)) return showToast('ID sudah wujud!');
+            books.push({
+                id: id,
+                title: document.getElementById('book-title').value,
+                status: 'Tersedia'
+            });
+            localStorage.setItem('lib_books', JSON.stringify(books));
+            renderBooks();
+            e.target.reset();
+            showToast('Buku berjaya didaftarkan.');
+        });
+
+        function populateBookSelect() {
+            const s = document.getElementById('book-select');
+            const availableBooks = books.filter(b => b.status === 'Tersedia');
+            s.innerHTML = '<option value="">-- Pilih Buku --</option>';
+            availableBooks.forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b.id;
+                opt.textContent = `${b.title} (${b.id})`;
+                s.appendChild(opt);
+            });
+        }
+
+        function updateDashboard() {
+            document.getElementById('stat-total-books').innerText = books.length;
+            document.getElementById('stat-borrowed').innerText = loans.filter(l => l.status === 'Dipinjam').length;
+            document.getElementById('stat-available').innerText = loans.filter(l => l.status === 'Dikembalikan').length;
+            
+            const ab = document.getElementById('recent-activity-body');
+            ab.innerHTML = '';
+            loans.slice(0, 5).forEach(l => {
+                ab.innerHTML += `
+                    <tr class="border-b">
+                        <td class="py-3">${l.borrower}</td>
+                        <td class="py-3 truncate max-w-[150px]">${l.item}</td>
+                        <td class="py-3 text-xs">${l.date}</td>
+                        <td class="py-3"><span class="text-[10px] uppercase font-bold ${l.status === 'Dipinjam' ? 'text-orange-600' : 'text-green-600'}">${l.status}</span></td>
+                    </tr>`;
+            });
+        }
+
+        function filterRecords() {
+            const q = document.getElementById('search-records').value.toLowerCase();
+            const rows = document.getElementById('loans-table-body').querySelectorAll('tr');
+            rows.forEach(r => r.style.display = r.innerText.toLowerCase().includes(q) ? '' : 'none');
+        }
+
+        function clearSearch() {
+            document.getElementById('search-records').value = '';
+            filterRecords();
+        }
+
+        function filterAndGoToRecords(st) {
+            switchTab('rekod');
+            document.getElementById('search-records').value = st;
+            filterRecords();
+            document.getElementById('clear-filter-btn').classList.remove('hidden');
+        }
+
+        function renderAnalysis() {
+            const tbody = document.getElementById('analysis-table-body');
+            tbody.innerHTML = '';
+            
+            const monthNames = ["Januari", "Februari", "Mac", "April", "Mei", "Jun", "Julai", "Ogos", "September", "Oktober", "November", "Disember"];
+            const currentYear = new Date().getFullYear();
+            
+            // Set Titles with Dynamic Year
+            document.getElementById('analysis-title').innerText = `Analisis Pinjaman Bulanan (${currentYear})`;
+            document.getElementById('summary-year-label').innerText = `Rumusan Tahun ${currentYear}`;
+
+            let monthlyData = {};
+            monthNames.forEach((m, idx) => {
+                monthlyData[idx] = { murid: 0, guru: 0 };
+            });
+
+            loans.forEach(loan => {
+                const dateObj = new Date(loan.rawDate || loan.date.split('/').reverse().join('-'));
+                if(dateObj.getFullYear() === currentYear) {
+                    const month = dateObj.getMonth();
+                    if(loan.type === 'Pukal' || loan.class === 'GURU') {
+                        monthlyData[month].guru += (loan.qty || 1);
+                    } else {
+                        monthlyData[month].murid += 1;
+                    }
+                }
+            });
+
+            let totalM = 0;
+            let totalG = 0;
+
+            monthNames.forEach((m, idx) => {
+                const mTotal = monthlyData[idx].murid + monthlyData[idx].guru;
+                totalM += monthlyData[idx].murid;
+                totalG += monthlyData[idx].guru;
+
+                const tr = document.createElement('tr');
+                tr.className = "border-b hover:bg-gray-50";
+                tr.innerHTML = `
+                    <td class="p-4 border font-medium">${m} ${currentYear}</td>
+                    <td class="p-4 border text-center">${monthlyData[idx].murid}</td>
+                    <td class="p-4 border text-center">${monthlyData[idx].guru}</td>
+                    <td class="p-4 border text-center font-bold text-blue-700 bg-blue-50/30">${mTotal}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('total-murid-year').innerText = totalM;
+            document.getElementById('total-guru-year').innerText = totalG;
+            document.getElementById('grand-total-year').innerText = totalM + totalG;
+        }
+
+        // Init
+        updateDashboard();
+    </script>
+</body>
+</html>
