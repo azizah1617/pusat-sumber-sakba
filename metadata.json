@@ -1,0 +1,6 @@
+{
+  "name": "Sistem Perpustakaan & Media SAKBA",
+  "description": "Sistem Rekod Perpustakaan & Pengurusan Pinjaman Buku SM Sains Kepala Batas (SAKBA) dengan Cloud Sync dan analisis laporan.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
